@@ -271,6 +271,9 @@ class AdminController {
                 next()
             })
     }
+    /**
+     * Fake: fail a transaction
+     */
     static fakeFailTransaction = async () => {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
@@ -288,21 +291,28 @@ class AdminController {
         session.startTransaction()
 
         try{
+
+            // Finding hotel contain room id
+            const hotel = await HotelDTO.findOne({rooms: id})
+            // Deleting for hotel collection
+            const newRooms = hotel.rooms.filter( item => item !== id )
+            // Update room for hotel collection
+            await hotel.updateOne({ rooms: [...newRooms] }, {session})
+            // Delete document for room collection
             await RoomDTO.findByIdAndDelete(id, { session })
-            console.log("Delete result: ")
-            await AdminController.fakeFailTransaction()
-            
+            // await AdminController.fakeFailTransaction()
             // Commit the changes
             await session.commitTransaction()
             
-            res.send(`hello world ${id}`)
+            res.status(200).send('Deleting room success')
+            next()
         } catch( error ){
             // Rollback any changes made in the database
             await session.abortTransaction()
-
             // logging the error
             console.error(error)
             res.status(401).json(error)
+            next()
         } finally {
             // Ending the session
             session.endSession()
