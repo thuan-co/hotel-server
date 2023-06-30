@@ -1,6 +1,7 @@
 const UserDB= require("../model/UserModel")
 const HotelDto = require("../model/HotelModel")
-
+const RoomDto = require("../model/RoomModel")
+const TransactionDto = require('../model/TransactionModel')
 class ClientController {
     /**
      * [POST] api/v1/login
@@ -171,6 +172,166 @@ class ClientController {
                 res.status(404).json(error.message)
             })
         // res.send("Hello world")
+    }
+
+    /**
+     * Gets all rooms of type, now available
+     * @param {String[]} roomsType list type room
+     * @param {String[]} rooms  list room unavailable
+     */
+    static async #getRoomsAvailable( roomsType, rooms ) {
+        
+        const n = roomsType.length
+        const roomsAvail = []
+        // console.log("Room Unavailable: ", rooms)
+        for ( let _i = 0; _i < n; _i++ ) {
+            // => get room doc
+            try {
+                const res = await RoomDto.findById(roomsType[_i])
+                // console.log("Room numbers: ", res.roomNumbers )
+                let roomAvailableTmp = res.roomNumbers.filter( item => rooms.includes(JSON.stringify(item)) === false)
+                // console.log("Rooms Available: ", roomAvailableTmp )
+
+                    roomsAvail.push({
+                        id: roomsType[_i],
+                        title: res.title,
+                        desc: res.desc,
+                        price: res.price,
+                        maxPeople: res.maxPeople,
+                        roomNumbers: roomAvailableTmp
+                    })
+                
+            } catch (error) {
+                console.log("Error rooms available ", error)
+                return [null, error.message]
+            }
+        }
+        return [ roomsAvail, null ]
+    }
+
+    /**
+     * Get transaction has status booked or check-in, in dateEnd to dateStart
+     * @param {*} hotelId 
+     * @param {*} dateEnd 
+     * @param {*} dateStart 
+     * @returns 
+     */
+    static async #getTransactions( hotelId, dateEnd, dateStart ) {
+
+        try {
+
+            const res = await TransactionDto.find({
+                hotel: hotelId,
+                status:{ $in: ['Booked', 'Checkin'] },
+                $or: [
+                    { dateStart: { $lte: dateEnd } },
+                    { dateEnd: { $gte: dateStart} },
+                ]
+            })
+            return [res, null]
+        } catch( err ) {
+            console.log("Error get transaction: ", err)
+            return [ null, err.message ]
+        }
+    }
+
+    /**
+     * Gets all types of room
+     * @param {*} hotelId 
+     */
+    static async #getTypeRoomsByHotelId( hotelId ) {
+
+        try {
+            const res = await HotelDto.findById(hotelId)
+            
+            return [ res.rooms, null]
+        } catch (error) {
+            console.log(error);
+            return [ null, error.message ]
+        }
+    }
+
+    /**
+     * [GET] api/v1/room/available?hotelId
+     * Get rooms available of hotel to booking
+     */
+    async getAvailableRooms( req, res, next ) {
+        const body = req.body
+        try {
+
+            const [ transactionRooms, error ] = await ClientController.#getTransactions(body.hotelId, body.endDate, body.startDate)
+
+            if ( transactionRooms ) {
+                console.log("=============")
+                // console.log("Room transaction: ", transactionRooms)
+                const roomUnAvailable = []
+                for (let i = 0; i < transactionRooms.length; i++) {
+                    const tmp = transactionRooms[i].room
+                    roomUnAvailable.push(...tmp)
+                }
+                // console.log("Room Unavailable: ", roomUnAvailable)
+                // ==> gets list room type by hotel_id
+                const [ roomsType, errorType ] = await ClientController.#getTypeRoomsByHotelId(body.hotelId)
+                if ( errorType ) {
+                    throw new Error("Error when finding room type - ", errorType)
+                }
+                // => gets list room available to booking
+                const [ roomAvail, errorAvail ] = await ClientController.#getRoomsAvailable(roomsType, roomUnAvailable)
+                if ( errorAvail ) {
+                    throw new Error("Error when finding room available - ", errorAvail)
+                }
+                res.json(roomAvail)
+                next()
+            } else {
+                throw new Error(error)
+            }
+        } catch(err) {
+            console.log(err);
+            res.status(401).send(err.message)
+            next()
+        }
+    }
+
+    /**
+     * [POST] api/v1/reservation
+     * Request Body: {
+     *  hotelId: string,
+     *  rooms: {id: string, roomNumbers: []},
+     *  startDate: string,
+     *  endDate: string,
+     * }
+     * Makes transaction booking room
+     */
+    makeReservation( req, res, next ){
+        const body = req.body
+        // console.log("Body: ", body)
+        console.log("Start date", new Date(body.startDate))
+        // const startDate = new Date(body.startDate)
+        // const endDate = new Date(body.endDate)
+        // ==> Making reservation rooms
+        const booked = new TransactionDto({
+            username: body.username, 
+            hotel: body.hotelId, 
+            room: body.rooms.roomNumbers,
+            payment: body.payment,
+            status: "Booked",
+            price: body.price,
+            dateStart: body.startDate,
+            dateEnd: body.endDate
+        })
+
+        booked.save()
+            .then( result => {
+                // success 
+                res.json(result)
+                next()
+            })
+            .catch(err => {
+                res.status(401).send(err.message)
+                next()
+            })
+        console.log("Booked: ", booked)
+
     }
 }
 

@@ -8,5 +8,7 @@ router.get('/hotel/location', clientController.getHotelByLocation)
 router.get('/hotel/category', clientController.getHotelByType)
 router.get('/hotel/top-rating', clientController.getHotelTopRating)
 router.get('/hotel/detail/:id', clientController.getHotelDetailById)
+router.post('/room/available', clientController.getAvailableRooms)
+router.post('/reservation', clientController.makeReservation)
 
 module.exports = router

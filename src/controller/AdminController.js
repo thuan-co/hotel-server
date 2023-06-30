@@ -294,13 +294,14 @@ class AdminController {
 
             // Finding hotel contain room id
             const hotel = await HotelDTO.findOne({rooms: id})
+            console.log(hotel);
             // Deleting for hotel collection
             const newRooms = hotel.rooms.filter( item => item !== id )
             // Update room for hotel collection
             await hotel.updateOne({ rooms: [...newRooms] }, {session})
             // Delete document for room collection
             await RoomDTO.findByIdAndDelete(id, { session })
-            // await AdminController.fakeFailTransaction()
+            await AdminController.fakeFailTransaction()
             // Commit the changes
             await session.commitTransaction()
             
