@@ -10,5 +10,7 @@ router.get('/hotel/top-rating', clientController.getHotelTopRating)
 router.get('/hotel/detail/:id', clientController.getHotelDetailById)
 router.post('/room/available', clientController.getAvailableRooms)
 router.post('/reservation', clientController.makeReservation)
+router.get('/reservations', clientController.getReservationByEmail)
+router.get('/search/hotel', clientController.searchHotels)
 
 module.exports = router

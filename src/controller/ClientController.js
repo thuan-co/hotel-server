@@ -2,6 +2,9 @@ const UserDB= require("../model/UserModel")
 const HotelDto = require("../model/HotelModel")
 const RoomDto = require("../model/RoomModel")
 const TransactionDto = require('../model/TransactionModel')
+const format = require('date-fns/format')
+const { default: mongoose } = require("mongoose")
+
 class ClientController {
     /**
      * [POST] api/v1/login
@@ -312,7 +315,7 @@ class ClientController {
         const booked = new TransactionDto({
             username: body.username, 
             hotel: body.hotelId, 
-            room: body.rooms.roomNumbers,
+            room: body.rooms,
             payment: body.payment,
             status: "Booked",
             price: body.price,
@@ -332,6 +335,148 @@ class ClientController {
             })
         console.log("Booked: ", booked)
 
+    }
+
+    /**
+     * Gets all reservation by username/email
+     * [GET] api/v1/reservations?username=
+     */
+    async getReservationByEmail( req, res, next ) {
+
+        const username = req.query.username
+
+        try {
+            // console.log("Finding transactions")
+            const result = await TransactionDto.find({ username: username })
+
+            const reservationRes = []
+            for (let i = 0; i < result.length; i++) {
+                const item = result[i]
+                const hotel = await HotelDto.findById(item.hotel)
+                // console.log(hotel.name)
+                reservationRes.push({
+                    id: item.id.valueOf(),
+                    hotelName: hotel.name,
+                    room: item.room.join(', '),
+                    date: format(item.dateStart, 'yyyy-MM-dd') + ' - ' + format(item.dateEnd, 'yyyy-MM-dd'),
+                    price: item.price,
+                    payment: item.payment,
+                    status: item.status
+                })
+            }
+            // console.log(reservationRes)
+            res.json(reservationRes)
+        } catch(error) {
+            res.status(401).send(error.message)
+            next()
+        }
+    }
+
+    static async #filterHotelByCityAndMaxPeople(city, maxPeople) {
+
+        const regex = new RegExp(city, 'i')
+
+        try {
+            const hotels = await HotelDto.find({ city: { $regex:  regex } })
+            const result = []
+            // console.log("Hotel: ", hotels)
+            
+            let nHotel = hotels.length
+            for (let i = 0; i < nHotel; i++) {
+                let item = hotels[i]
+                let tmp = { 
+                    hotelId: item.id.valueOf(), 
+                    rooms: []
+                }
+                // Get list rooms
+                let nRoom = item.rooms.length
+                for (let j = 0; j < nRoom; j++) {
+                    let roomId = item.rooms[j]
+                    try {
+                        const room = await RoomDto.findById(roomId)
+                        if ( room ) {
+                            // console.log(room)
+                            if (room.maxPeople >= maxPeople) {
+                                // push room
+                                if (room.roomNumbers.length > 0) {
+                                    tmp.rooms.push(room.roomNumbers)
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.log(error)
+                    }
+                }
+                if (tmp.rooms.length > 0) {
+                    result.push(tmp)
+                }
+            }
+
+            return [ result, null ]
+        } catch(error) {
+            console.log(error)
+            return [ null, error ]
+        }
+    }
+    /**
+     * [GET] api/vi/search/hotel?location=
+     */
+    async searchHotels(req, res, next) {
+
+        const location = req.query.location
+        const maxPeople = Number(req.query.maxPeople)
+        const startDate = req.query.startDate
+        const endDate = req.query.endDate
+        const aMountRoom = Number(req.query.rooms) /// so luong phong (number)
+        const resultHotelId = []
+        const response = []
+        const [listHotel, err] = await ClientController
+                .#filterHotelByCityAndMaxPeople(location, maxPeople)
+        if (listHotel.length > 0) {
+            
+            let nHotel = listHotel.length
+            for (let i = 0; i < nHotel; i++) {
+                let item = listHotel[i]
+                //Gets transaction by hotelId
+                const [ transactionRooms, error ] = await ClientController
+                        .#getTransactions(item.hotelId, endDate, startDate)
+                // Gets list room un-available of a hotel
+                const roomUnAvailable = []
+                for (let i = 0; i < transactionRooms.length; i++) {
+                    const tmp = transactionRooms[i].room
+                    roomUnAvailable.push(...tmp)
+                }
+                // console.log("Rooms unavailable: ", roomUnAvailable)
+                // Check/compare one by one (rooms was filter by max people and location)
+                let count = 0
+                for (let j = 0; j < item.rooms.length; j++) {
+                    let roomItem = item.rooms[j]
+                    if ( !roomUnAvailable.includes(roomItem )) {
+                        count++
+                    }
+                    if (count >= aMountRoom) {
+                        resultHotelId.push(item.hotelId)
+                        break
+                    }
+                }
+            }
+            // Generate data return/response for client
+            if (resultHotelId.length > 0) {
+                for (let i = 0; i < resultHotelId.length; i++) {
+
+                    try {
+                        const tmp = await HotelDto.findById(resultHotelId[i])
+                        response.push(tmp)
+                    } catch (error) {
+                        console.log(error)
+                    }
+                }
+            }
+            res.json(response)
+            next()
+            return
+        }
+        res.send("Khong co")
     }
 }
 
