@@ -1,6 +1,8 @@
 const  mongoose = require('mongoose')
 const HotelDTO = require('../model/HotelModel')
 const RoomDTO = require('../model/RoomModel')
+const TransactionModel = require('../model/TransactionModel')
+const { format } = require('date-fns')
 class AdminController {
 
     /** [POST] /api/v1/admin/add-hotel
@@ -135,9 +137,9 @@ class AdminController {
                     roomResult.maxPeople = room.maxPeople
                     roomResult.save()
                         .then( result => {
-                            console.log("Updated Room ", result)
+                            // console.log("Updated Room ", result)
                             res.json({
-                                message: "Updated success",
+                                message: "Updated success " + roomResult.title,
                                 error: false
                             })
                             next()
@@ -319,6 +321,69 @@ class AdminController {
             session.endSession()
         }
     }
+
+    /**
+     * Get transactions booking
+     * 
+     */
+    async getTransactions( req, res, next ) {
+        const limit = req.query.limit
+        let response = []
+        let listTransaction = []
+        let result = []
+        if (limit) {
+            // console.log("Limit: ", Number(limit))
+            try {
+                result = await TransactionModel.find()
+                        .sort({_id: -1}).limit(Number(limit))
+                
+            } catch( error) {
+                    console.log(error)
+                    res.json({
+                        message: error,
+                        error: true
+                    })
+                    return next()
+            }
+        } else {
+            try {
+                //TODO: Pagination for result, using library
+                result = await TransactionModel.find()
+            } catch(error) {
+                console.log(error)
+                    res.json({
+                        message: error,
+                        error: true
+                    })
+                    return next()
+            }
+        }
+        // console.log("List transaction: ", listTransaction)
+        result = result.map(item => {
+            return {
+                id: item._id.valueOf(),
+                username: item.username.split('@')[0],
+                hotel: item.hotel,
+                room: item.room.join(', '),
+                date: format(item.dateStart, 'dd/MM/yyyy') 
+                + ' - ' + 
+                format(item.dateEnd, 'dd/MM/yyyy'),
+                price: item.price,
+                payment: item.payment,
+                status: item.status
+            }
+        })
+
+        let n = result.length
+        for (let i = 0; i < n; i++) {
+            let tmp = result[i]
+            const hotel = await HotelDTO.findById(tmp.hotel)
+
+            result[i].hotel = hotel.name
+        }
+        res.json(result)
+    }
+
 }
 
 module.exports = new AdminController

@@ -466,15 +466,28 @@ class ClientController {
 
                     try {
                         const tmp = await HotelDto.findById(resultHotelId[i])
-                        response.push(tmp)
+                        if ( tmp ) {
+
+                            response.push({
+                                id: tmp.id.valueOf(),
+                                name: tmp.name,
+                                distance: tmp.distance,
+                                tag: 'Free Breakfast',
+                                description: tmp.desc.split('.')[0],
+                                free_cancel: true,
+                                price: tmp.cheapestPrice,
+                                rate: tmp.rating,
+                                rate_text: (tmp.rating <= 6)?'Exceptional':'Excellent',
+                                image_url: tmp.photos[0]
+                            })
+                        }
                     } catch (error) {
                         console.log(error)
                     }
                 }
             }
             res.json(response)
-            next()
-            return
+            return next()
         }
         res.send("Khong co")
     }
