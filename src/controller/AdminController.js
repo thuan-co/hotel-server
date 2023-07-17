@@ -2,7 +2,7 @@ const  mongoose = require('mongoose')
 const HotelDTO = require('../model/HotelModel')
 const RoomDTO = require('../model/RoomModel')
 const TransactionModel = require('../model/TransactionModel')
-const { format } = require('date-fns')
+const { format, subDays } = require('date-fns')
 const UserModel = require('../model/UserModel')
 class AdminController {
 
@@ -273,6 +273,66 @@ class AdminController {
                 res.status(401).json(err)
                 next()
             })
+    }
+
+    /**
+     * 
+     * [DELETE] /api/v1/admin/hotel/:id
+     * Send request deleting hotel by ID and checks
+     */
+    async deleteHotelById( req, res, next ) {
+        const hotelId = req.params.id
+        // Check-in hotel was existed before
+        const fakeDate = subDays(new Date(), 3)
+        console.log(fakeDate)
+        try {
+            const result = await TransactionModel.find({
+                hotel: hotelId,
+                status: { $in: ["Booked", "Checkin"] },
+                dateEnd: { $gte: fakeDate }
+            })
+            // res.json(result)
+            if (result.length > 0) {
+                res.json({
+                    accept: false,
+                    message: "Khách sạn đang có giao dịch (đặt)."
+                })
+            } else {
+                res.json({
+                    accept: true,
+                    message: "Được phép xóa khách sạn"
+                })
+            }
+        } catch(err) {
+            console.log(err)
+            res.status(501).json({
+                error: true,
+                message: err
+            })
+        }
+        next()
+    }
+    /**
+     * [POST] /api/v1/admin/confirm-delete-hotel/:id
+     * 
+     */
+    async confirmDeleteHotelById( req, res, next ) {
+        const id = req.params.id
+        
+        try {
+            const result = await HotelDTO.deleteOne({ _id: id })
+            console.log("Hotel deleted, ", result)
+            res.json({
+                message: "Deleted hotel success",
+                error: false
+            })
+        } catch (error) {
+            res.status(501).json({
+                error: true,
+                message: error
+            })
+        }
+        next()
     }
     /**
      * Fake: fail a transaction
