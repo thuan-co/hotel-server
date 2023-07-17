@@ -11,4 +11,6 @@ router.get( '/list-room', adminController.getListRooms)
 router.get('/hotel-name/room', adminController.getNameHotelByRoomId)
 router.delete('/room/:id', adminController.deleteRoomById)
 router.get('/transaction', adminController.getTransactions)
+router.get('/total-user', adminController.getTotalUser)
+router.get('/total-earning', adminController.getEarning)
 module.exports = router

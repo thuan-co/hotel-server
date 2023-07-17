@@ -3,6 +3,7 @@ const HotelDTO = require('../model/HotelModel')
 const RoomDTO = require('../model/RoomModel')
 const TransactionModel = require('../model/TransactionModel')
 const { format } = require('date-fns')
+const UserModel = require('../model/UserModel')
 class AdminController {
 
     /** [POST] /api/v1/admin/add-hotel
@@ -324,12 +325,11 @@ class AdminController {
 
     /**
      * Get transactions booking
+     * [GET] /transaction
      * 
      */
     async getTransactions( req, res, next ) {
         const limit = req.query.limit
-        let response = []
-        let listTransaction = []
         let result = []
         if (limit) {
             // console.log("Limit: ", Number(limit))
@@ -384,6 +384,62 @@ class AdminController {
         res.json(result)
     }
 
+    getTotalUser( req, res, next ) {
+        UserModel.find({ isAdmin: false })
+            .then(result => {
+                res.json({totalUser: result.length })
+                return next()
+            })
+            .catch(err => {
+                res.status(501).json({
+                    message: err,
+                    error: true 
+                })
+            })
+    }
+
+    getTotalTransaction( req, res, next ) {
+        
+        TransactionModel.count()
+            .then(result => {
+                res.json({ totalUser: result.length })
+                return next()
+            })
+            .catch(err => {
+                res.status(501).json({
+                    message: err,
+                    error: true 
+                })
+                return next()
+            })
+    }
+
+    async getEarning( req, res, next ) {
+
+        // Calculator total earning money
+        try {
+            //
+            const listTransaction = await TransactionModel.find()
+            const n = listTransaction.length
+            let total = 0
+            for (let i = 0; i < n; i++) {
+
+                total += Number(listTransaction[i].price)
+            }
+
+            res.json({ 
+                total: total,
+                order: n
+            })
+            return next()
+        } catch( error) {
+            res.status(501).json({
+                message: err,
+                error: true 
+            })
+            return next()
+        }
+    }
 }
 
 module.exports = new AdminController
