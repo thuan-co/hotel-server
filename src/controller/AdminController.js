@@ -283,7 +283,7 @@ class AdminController {
     async deleteHotelById( req, res, next ) {
         const hotelId = req.params.id
         // Check-in hotel was existed before
-        const fakeDate = subDays(new Date(), 3)
+        const fakeDate = subDays(new Date(), 4)
         console.log(fakeDate)
         try {
             const result = await TransactionModel.find({
@@ -320,6 +320,13 @@ class AdminController {
         const id = req.params.id
         
         try {
+            await TransactionModel.deleteMany({ hotel: id })
+            const hotel = await HotelDTO.findById(id)
+            const nRoom = hotel.rooms.length
+            for (let i = 0; i < nRoom; i++) {
+                const roomDeleted = await RoomDTO.deleteOne({_id: hotel.rooms[i]} )
+                console.log(roomDeleted)
+            }
             const result = await HotelDTO.deleteOne({ _id: id })
             console.log("Hotel deleted, ", result)
             res.json({
@@ -332,6 +339,7 @@ class AdminController {
                 message: error
             })
         }
+        // res.send(id)
         next()
     }
     /**
