@@ -77,7 +77,7 @@ class AdminController {
 
     /**
      * [POST] /api/v1/admin/add-rooms
-     * Updating number rooms for hotel
+     * Updating number rooms for hotel, feature creating hotel
      */
     updateRoomForHotel( req, res, next ) {
         let room = req.body
@@ -184,6 +184,21 @@ class AdminController {
     }
 
     /**
+     * [GET] /api/v1/admin/get/hotel/:id
+     */
+    async getHotelByIdHotel( req, res, next ) {
+        const id = req.params.id
+        // console.log(id)
+        try {
+            const result = await HotelDTO.findById(id)
+            res.json(result)
+        } catch (error) {
+            res.status(501).send(error.message)
+        }
+        next()
+    }
+
+    /**
      * [GET] /api/v1/admin/hotel/:id
      * Gets hotel by Id
      * Response {[{roomId: "", title: ""}]}
@@ -212,6 +227,37 @@ class AdminController {
         }
     }
 
+    /**
+     * [POST] /api/v1/admin/update-hotel
+     * Update hotel
+     */
+    async updateHotel( req, res, next ) {
+        const updatedHotel = req.body
+        // console.log("Updated Hotel: ", updatedHotel)
+        try {
+            await HotelDTO.findByIdAndUpdate( updatedHotel.id, {
+                name: updatedHotel.name,
+                address: updatedHotel.address,
+                city: updatedHotel.city,
+                type: updatedHotel.type,
+                cheapestPrice: Number(updatedHotel.price),
+                photos: updatedHotel.photos,
+                desc: updatedHotel.desc
+            })
+            const result = await HotelDTO.findById(updatedHotel.id)
+            // console.log("Hotel: ", result)
+            res.json({
+                id: result._id.valueOf(),
+                name: result.name,
+                type: result.type,
+                city: result.city
+            })
+        } catch(error) {
+            console.log(error)
+            res.status(501).json(error.message)
+        }
+        next()
+    }
     /**
      * [GET] /api/v1/admin/list-hotel
      * Response {id: string, name: string, type: string, city: string}
@@ -284,14 +330,14 @@ class AdminController {
         const hotelId = req.params.id
         // Check-in hotel was existed before
         const fakeDate = subDays(new Date(), 4)
-        console.log(fakeDate)
+        // console.log(fakeDate)
         try {
             const result = await TransactionModel.find({
                 hotel: hotelId,
                 status: { $in: ["Booked", "Checkin"] },
                 dateEnd: { $gte: fakeDate }
             })
-            // res.json(result)
+
             if (result.length > 0) {
                 res.json({
                     accept: false,
@@ -324,15 +370,19 @@ class AdminController {
             const hotel = await HotelDTO.findById(id)
             const nRoom = hotel.rooms.length
             for (let i = 0; i < nRoom; i++) {
-                const roomDeleted = await RoomDTO.deleteOne({_id: hotel.rooms[i]} )
+                const roomDeleted = await RoomDTO.deleteOne({ _id: hotel.rooms[i] } )
                 console.log(roomDeleted)
-            }
+            }      
             const result = await HotelDTO.deleteOne({ _id: id })
             console.log("Hotel deleted, ", result)
             res.json({
                 message: "Deleted hotel success",
                 error: false
             })
+            // res.status(501).json({
+            //     error: true,
+            //     message: "Test loi"
+            // })
         } catch (error) {
             res.status(501).json({
                 error: true,
