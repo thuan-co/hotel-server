@@ -1,5 +1,6 @@
 const mongoose = require("mongoose")
 const Schema = mongoose.Schema
+const mongoosePaginate = require('mongoose-paginate-v2')
 
 const Transaction = new Schema({
     username: String,
@@ -11,4 +12,5 @@ const Transaction = new Schema({
     payment: String,
     status: String
 })
+Transaction.plugin(mongoosePaginate)
 module.exports = mongoose.model('Transaction', Transaction)

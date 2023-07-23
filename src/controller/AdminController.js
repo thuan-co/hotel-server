@@ -407,38 +407,83 @@ class AdminController {
      */
     async deleteRoomById( req, res, next ) {
         const id = req.params.id
-        const session = await mongoose.startSession()
+        // const session = await mongoose.startSession()
 
-        session.startTransaction()
+        // session.startTransaction()
 
         try{
-
             // Finding hotel contain room id
             const hotel = await HotelDTO.findOne({rooms: id})
-            console.log(hotel);
-            // Deleting for hotel collection
-            const newRooms = hotel.rooms.filter( item => item !== id )
-            // Update room for hotel collection
-            await hotel.updateOne({ rooms: [...newRooms] }, {session})
-            // Delete document for room collection
-            await RoomDTO.findByIdAndDelete(id, { session })
-            await AdminController.fakeFailTransaction()
-            // Commit the changes
-            await session.commitTransaction()
+            const room = await RoomDTO.findById(id)
+            const fakeDate = subDays(new Date(), 15)
+            // gets transactions of hotel (room want delete)
+            const roomNumbers = []
+            const result = await TransactionModel.find({
+                hotel: hotel._id.valueOf(),
+                status: { $in: ["Booked", "Checkin"] },
+                dateEnd: { $gte: new Date() }
+            })
+
+            if ( result.length > 0 ) {
+                for (let i = 0; i < result.length; i++) {
+                    roomNumbers.push(...result[i].room)
+                }
+                // console.log(room.roomNumbers)
+                // console.log(roomNumbers)
+                // Check room number is booking in transaction
+                let isContain
+                for (let i = 0; i < room.roomNumbers.length; i++) {
+                    isContain = roomNumbers.indexOf(room.roomNumbers[i])
+                    if (isContain >= 0) break
+                }
+                // Not allow deleting
+                if (isContain >= 0) {
+                    res.status(501).send('Deleting room not allow')
+                    return next()
+                } else {
+                    // Allow deleting
+                    const resDeleteRoom = await RoomDTO.findByIdAndDelete(id)
+                    if ( resDeleteRoom ) {
+
+                        res.status(200).send('Deleting room success')
+                        return next()
+                    }
+                }
+
+            } else {
+                // Allow deleting
+                const resDeleteRoom = await RoomDTO.findByIdAndDelete(id)
+                if ( resDeleteRoom ) {
+                    
+                    res.status(200).send('Deleting room success')
+                    return next()
+                }
+            }
             
-            res.status(200).send('Deleting room success')
-            next()
+            // console.log(hotel);
+            // Deleting for hotel collection
+            // const newRooms = hotel.rooms.filter( item => item !== id )
+            // Update room for hotel collection
+            // await hotel.updateOne({ rooms: [...newRooms] }, {session})
+            // Delete document for room collection
+            // await RoomDTO.findByIdAndDelete(id, { session })
+            // await AdminController.fakeFailTransaction()
+            // Commit the changes
+            // await session.commitTransaction() 
+            // res.status(200).send('Deleting room success')
+            // next()
         } catch( error ){
             // Rollback any changes made in the database
-            await session.abortTransaction()
+            // await session.abortTransaction()
             // logging the error
             console.error(error)
             res.status(401).json(error)
-            next()
-        } finally {
-            // Ending the session
-            session.endSession()
-        }
+            return next()
+        } 
+        // finally {
+        //     // Ending the session
+        //     // session.endSession()
+        // }
     }
 
     /**
@@ -467,6 +512,8 @@ class AdminController {
             try {
                 //TODO: Pagination for result, using library
                 result = await TransactionModel.find()
+                // console.log(result)
+
             } catch(error) {
                 console.log(error)
                     res.json({

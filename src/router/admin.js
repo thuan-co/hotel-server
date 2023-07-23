@@ -1,9 +1,11 @@
 const express = require('express')
 const router = express.Router()
 const adminController = require('../controller/AdminController')
+const auth = require('../controller/AuthAdmin')
 
 router.post('/add-hotel', adminController.createNewHotel)
 router.post('/add-rooms', adminController.updateRoomForHotel)
+router.post('/login', auth.loginAdmin)
 router.post('/update-hotel', adminController.updateHotel)
 router.get('/hotels', adminController.getHotels)
 router.get('/hotel/:id', adminController.getRoomsHotelById)
