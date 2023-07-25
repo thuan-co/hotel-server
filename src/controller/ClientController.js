@@ -47,7 +47,8 @@ class ClientController {
     registerClient( req, res, next ) {
         const username = req.body.username
         const password = req.body.password
-
+        const phoneNumber = req.body.phoneNumber
+        const fullName = req.body.fullName
         // ==> Checking existed yet ?
         UserDB.findOne({username: username})
             .then((user) => {
@@ -60,7 +61,14 @@ class ClientController {
                     return
                 } else {
                     // ==> Create new user
-                    const newUser = new UserDB( {username: username, password: password, isAdmin: false} )
+                    const newUser = new UserDB( {
+                        username: username,
+                        email: username, 
+                        password: password,
+                        fullName: fullName,
+                        phoneNumber: phoneNumber,
+                        isAdmin: false
+                    } )
                     newUser.save()
                         .then((user) => {
                             // console.log("New user: ", user )
@@ -192,7 +200,9 @@ class ClientController {
             try {
                 const res = await RoomDto.findById(roomsType[_i])
                 // console.log("Room numbers: ", res.roomNumbers )
-                let roomAvailableTmp = res.roomNumbers.filter( item => rooms.includes(JSON.stringify(item)) === false)
+                let roomAvailableTmp = res.roomNumbers.filter( 
+                    item => rooms.includes(item) === false
+                )
                 // console.log("Rooms Available: ", roomAvailableTmp )
 
                     roomsAvail.push({
@@ -227,10 +237,11 @@ class ClientController {
                 hotel: hotelId,
                 status:{ $in: ['Booked', 'Checkin'] },
                 $or: [
-                    { dateStart: { $lte: dateEnd } },
-                    { dateEnd: { $gte: dateStart} },
+                    { dateStart: { $lte: dateEnd }, endDate: { $gte: dateEnd} },
+                    { dateEnd: { $gte: dateStart}, dateStart: { $lte: dateStart } },
                 ]
             })
+            // console.log(res)
             return [res, null]
         } catch( err ) {
             console.log("Error get transaction: ", err)
@@ -261,11 +272,9 @@ class ClientController {
     async getAvailableRooms( req, res, next ) {
         const body = req.body
         try {
-
             const [ transactionRooms, error ] = await ClientController.#getTransactions(body.hotelId, body.endDate, body.startDate)
-
             if ( transactionRooms ) {
-                console.log("=============")
+                // console.log("=============")
                 // console.log("Room transaction: ", transactionRooms)
                 const roomUnAvailable = []
                 for (let i = 0; i < transactionRooms.length; i++) {
@@ -284,6 +293,7 @@ class ClientController {
                     throw new Error("Error when finding room available - ", errorAvail)
                 }
                 res.json(roomAvail)
+                // console.log("Available rooms: ", roomAvail)
                 next()
             } else {
                 throw new Error(error)
