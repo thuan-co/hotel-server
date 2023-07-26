@@ -408,22 +408,21 @@ class AdminController {
     async deleteRoomById( req, res, next ) {
         const id = req.params.id
         // const session = await mongoose.startSession()
-
         // session.startTransaction()
-
         try{
             // Finding hotel contain room id
             const hotel = await HotelDTO.findOne({rooms: id})
             const room = await RoomDTO.findById(id)
-            const fakeDate = subDays(new Date(), 15)
             // gets transactions of hotel (room want delete)
             const roomNumbers = []
             const result = await TransactionModel.find({
                 hotel: hotel._id.valueOf(),
                 status: { $in: ["Booked", "Checkin"] },
-                dateEnd: { $gte: new Date() }
+                $or: [ 
+                    { dateStart: { $gte: new Date() }},
+                    { dateEnd: { $gte: new Date() }}
+                ]
             })
-
             if ( result.length > 0 ) {
                 for (let i = 0; i < result.length; i++) {
                     roomNumbers.push(...result[i].room)
@@ -438,7 +437,7 @@ class AdminController {
                 }
                 // Not allow deleting
                 if (isContain >= 0) {
-                    res.status(501).send('Deleting room not allow')
+                    res.status(501).send('Phòng đang có giao dịch')
                     return next()
                 } else {
                     // Allow deleting
@@ -448,6 +447,8 @@ class AdminController {
                         res.status(200).send('Deleting room success')
                         return next()
                     }
+                    // res.status(200).send('Deleting room success')
+                    // return next()
                 }
 
             } else {
@@ -477,7 +478,7 @@ class AdminController {
             // await session.abortTransaction()
             // logging the error
             console.error(error)
-            res.status(401).json(error)
+            res.status(501).json(error)
             return next()
         } 
         // finally {
